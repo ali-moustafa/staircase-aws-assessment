@@ -1,5 +1,9 @@
 # staircase-aws-assessment
 
+Note:
+I deviated from the provided architecture as I was not able to achieve it with serverless framework because its my first time to use the framework.
+So I looked for a work around with python which is using Flask APIs instead of presigned urls and Amazon API Gateway.
+
 serverless.yml
   - creating S3 bucket
   - creating DynamoDB Table
