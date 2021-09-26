@@ -1,0 +1,83 @@
+service: serverless-lambda-s3
+
+plugins:
+  - serverless-python-requirements
+  - serverless-wsgi
+package:
+  individually: true
+  excludeDevDependencies: true
+
+custom:
+  tableName: serverless_images_table
+  wsgi:
+    app: app.app
+    pythonBin: python3
+  pythonRequirements:
+    slim: true
+    strip: false
+    slimPatternsAppendDefaults: true
+    slimPatterns:
+      - "**/*.egg-info*"
+      - "**/*.dist-info*"
+    dockerizePip: true
+
+resources:
+  Resources:
+    UploadBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: serverless-staircase-images
+        # Set the CORS policy
+        CorsConfiguration:
+          CorsRules:
+            -
+              AllowedOrigins:
+                - '*'
+              AllowedHeaders:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              MaxAge: 3000
+    ImagesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tableName}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        # Set the capacity to auto-scale
+        BillingMode: PAY_PER_REQUEST
+
+provider:
+  name: aws
+  runtime: python3.8
+  stage: dev
+  region: us-west-2
+  environment:
+    S3_BUCKET: serverless-staircase-images
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "s3:*"
+      Resource: ["arn:aws:s3:::${self:provider.environment.S3_BUCKET}/*"]
+
+functions:
+  api:
+    handler: wsgi_handler.handler
+    events:
+      - http: ANY /
+      - http: ANY {proxy+}
+  process_image_handler:
+    handler: app.process_image
+    events:
+      - s3:
+          bucket: ${self:provider.environment.S3_BUCKET}
+          event: s3:ObjectCreated:*
+          existing: true
